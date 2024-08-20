@@ -1,0 +1,196 @@
+#This analysis utilized the following Digital Media Store Analysis dataset:
+
+CREATE TABLE media_types (
+    MediaTypeId INTEGER PRIMARY KEY,
+    Name NVARCHAR(120)
+);
+
+CREATE TABLE genres (
+    GenreId INTEGER PRIMARY KEY,
+    Name NVARCHAR(120)
+);
+
+CREATE TABLE artists (
+    ArtistId INTEGER PRIMARY KEY,
+    Name NVARCHAR(120)
+);
+
+CREATE TABLE albums (
+    AlbumId INTEGER PRIMARY KEY,
+    Title NVARCHAR(160),
+    ArtistId INTEGER,
+    FOREIGN KEY (ArtistId) REFERENCES artists(ArtistId)
+);
+
+CREATE TABLE tracks (
+    TrackId INTEGER PRIMARY KEY,
+    Name NVARCHAR(200),
+    AlbumId INTEGER,
+    MediaTypeId INTEGER,
+    GenreId INTEGER,
+    Composer NVARCHAR(220),
+    Milliseconds INTEGER,
+    Bytes INTEGER,
+    UnitPrice NUMERIC(10, 2),
+    FOREIGN KEY (AlbumId) REFERENCES albums(AlbumId),
+    FOREIGN KEY (MediaTypeId) REFERENCES media_types(MediaTypeId),
+    FOREIGN KEY (GenreId) REFERENCES genres(GenreId)
+);
+
+CREATE TABLE playlists (
+    PlaylistId INTEGER PRIMARY KEY,
+    Name NVARCHAR(120)
+);
+
+CREATE TABLE playlist_track (
+    PlaylistId INTEGER,
+    TrackId INTEGER,
+    PRIMARY KEY (PlaylistId, TrackId),
+    FOREIGN KEY (PlaylistId) REFERENCES playlists(PlaylistId),
+    FOREIGN KEY (TrackId) REFERENCES tracks(TrackId)
+);
+
+CREATE TABLE customers (
+    CustomerId INTEGER PRIMARY KEY,
+    FirstName NVARCHAR(40),
+    LastName NVARCHAR(20),
+    Company NVARCHAR(80),
+    Address NVARCHAR(70),
+    City NVARCHAR(40),
+    State NVARCHAR(40),
+    Country NVARCHAR(40),
+    PostalCode NVARCHAR(10),
+    Phone NVARCHAR(24),
+    Fax NVARCHAR(24),
+    Email NVARCHAR(60),
+    SupportRepId INTEGER,
+    FOREIGN KEY (SupportRepId) REFERENCES employees(EmployeeId)
+);
+
+CREATE TABLE employees (
+    EmployeeId INTEGER PRIMARY KEY,
+    LastName NVARCHAR(20),
+    FirstName NVARCHAR(20),
+    Title NVARCHAR(30),
+    ReportsTo INTEGER,
+    BirthDate DATETIME,
+    HireDate DATETIME,
+    Address NVARCHAR(70),
+    City NVARCHAR(40),
+    State NVARCHAR(40),
+    Country NVARCHAR(40),
+    PostalCode NVARCHAR(10),
+    Phone NVARCHAR(24),
+    Fax NVARCHAR(24),
+    Email NVARCHAR(60),
+    FOREIGN KEY (ReportsTo) REFERENCES employees(EmployeeId)
+);
+
+CREATE TABLE invoices (
+    InvoiceId INTEGER PRIMARY KEY,
+    CustomerId INTEGER,
+    InvoiceDate DATETIME,
+    BillingAddress NVARCHAR(70),
+    BillingCity NVARCHAR(40),
+    BillingState NVARCHAR(40),
+    BillingCountry NVARCHAR(40),
+    BillingPostalCode NVARCHAR(10),
+    Total NUMERIC(10, 2),
+    FOREIGN KEY (CustomerId) REFERENCES customers(CustomerId)
+);
+
+CREATE TABLE invoice_items (
+    InvoiceLineId INTEGER PRIMARY KEY,
+    InvoiceId INTEGER,
+    TrackId INTEGER,
+    UnitPrice NUMERIC(10, 2),
+    Quantity INTEGER,
+    FOREIGN KEY (InvoiceId) REFERENCES invoices(InvoiceId),
+    FOREIGN KEY (TrackId) REFERENCES tracks(TrackId)
+);
+
+#1. Show Customers (their full names, customer ID, and country) who are not in the US.
+SELECT CustomerId, FirstName || ' ' || LastName AS FullName, Country
+FROM customers
+WHERE Country != 'USA';
+
+#2. Show only the Customers from Brazil.
+SELECT CustomerId, FirstName || ' ' || LastName AS FullName, Country
+FROM customers
+WHERE Country = 'Brazil';
+
+#3. Find the Invoices of customers who are from Brazil. The resulting table should show the customer's full name, Invoice ID, Date of the invoice, and billing country.
+SELECT c.FirstName || ' ' || c.LastName AS FullName, i.InvoiceId, i.InvoiceDate, i.BillingCountry
+FROM invoices i
+JOIN customers c ON i.CustomerId = c.CustomerId
+WHERE c.Country = 'Brazil';
+
+#4. Show the Employees who are Sales Agents.
+SELECT EmployeeId, FirstName || ' ' || LastName AS FullName, Title
+FROM employees
+WHERE Title LIKE '%Sales%Agent%';
+
+#5. Find a unique/distinct list of billing countries from the Invoice table.
+SELECT DISTINCT BillingCountry
+FROM invoices;
+
+#6. Provide a query that shows the invoices associated with each sales agent. The resulting table should include the Sales Agent's full name.
+SELECT e.FirstName || ' ' || e.LastName AS SalesAgent, i.InvoiceId
+FROM invoices i
+JOIN customers c ON i.CustomerId = c.CustomerId
+JOIN employees e ON c.SupportRepId = e.EmployeeId
+WHERE e.Title LIKE '%Sales%Agent%';
+
+#7. Show the Invoice Total, Customer name, Country, and Sales Agent name for all invoices and customers.
+SELECT i.Total, c.FirstName || ' ' || c.LastName AS CustomerName, c.Country, e.FirstName || ' ' || e.LastName AS SalesAgent
+FROM invoices i
+JOIN customers c ON i.CustomerId = c.CustomerId
+JOIN employees e ON c.SupportRepId = e.EmployeeId;
+
+#8. How many Invoices were there in 2009?
+SELECT COUNT(*) AS InvoiceCount
+FROM invoices
+WHERE strftime('%Y', InvoiceDate) = '2009';
+
+#9. What are the total sales for 2009?
+SELECT SUM(Total) AS TotalSales
+FROM invoices
+WHERE strftime('%Y', InvoiceDate) = '2009';
+
+#10. Write a query that includes the purchased track name with each invoice line ID.
+SELECT il.InvoiceLineId, t.Name AS TrackName
+FROM invoice_items il
+JOIN tracks t ON il.TrackId = t.TrackId;
+
+#11. Write a query that includes the purchased track name AND artist name with each invoice line ID.
+SELECT il.InvoiceLineId, t.Name AS TrackName, a.Name AS ArtistName
+FROM invoice_items il
+JOIN tracks t ON il.TrackId = t.TrackId
+JOIN albums al ON t.AlbumId = al.AlbumId
+JOIN artists a ON al.ArtistId = a.ArtistId;
+
+#12. Provide a query that shows all the Tracks, and include the Album name, Media type, and Genre.
+SELECT t.Name AS TrackName, al.Title AS AlbumName, mt.Name AS MediaType, g.Name AS Genre
+FROM tracks t
+JOIN albums al ON t.AlbumId = al.AlbumId
+JOIN media_types mt ON t.MediaTypeId = mt.MediaTypeId
+JOIN genres g ON t.GenreId = g.GenreId;
+
+#13. Show the total sales made by each sales agent.
+SELECT e.FirstName || ' ' || e.LastName AS SalesAgent, SUM(i.Total) AS TotalSales
+FROM invoices i
+JOIN customers c ON i.CustomerId = c.CustomerId
+JOIN employees e ON c.SupportRepId = e.EmployeeId
+WHERE e.Title LIKE '%Sales%Agent%'
+GROUP BY e.EmployeeId;
+
+#14. Which sales agent made the most dollars in sales in 2009?
+SELECT e.FirstName || ' ' || e.LastName AS SalesAgent, SUM(i.Total) AS TotalSales
+FROM invoices i
+JOIN customers c ON i.CustomerId = c.CustomerId
+JOIN employees e ON c.SupportRepId = e.EmployeeId
+WHERE e.Title LIKE '%Sales%Agent%' AND strftime('%Y', i.InvoiceDate) = '2009'
+GROUP BY e.EmployeeId
+ORDER BY TotalSales DESC
+LIMIT 1;
+
